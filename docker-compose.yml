@@ -1,0 +1,44 @@
+version: '3.8'
+
+volumes:
+  postgres_av_bakery_volume:
+
+services:
+  db:
+    image: postgres:14.11-alpine
+    environment:
+      POSTGRES_DB: av-bakery
+      POSTGRES_USER: av
+      POSTGRES_PASSWORD: av
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_av_bakery_volume:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    ports:
+      - "5432:5432"
+    restart: on-failure
+    networks:
+      - av-net
+  adminer:
+    image: adminer:4.8.1-standalone
+    ports:
+      - "8080:8080"
+    networks:
+      - av-net
+  smtp:
+    image: mailhog/mailhog
+    logging:
+      driver: 'none'
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - av-net
+networks:
+  av-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.168.13.0/24
+          gateway: 172.168.13.1
