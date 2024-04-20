@@ -8,7 +8,7 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 
 # Cài đặt tất cả các dependencies
-RUN npm install --only=production
+RUN npm install
 
 # Sao chép mã nguồn của ứng dụng vào trong container
 COPY . .
@@ -17,7 +17,7 @@ COPY . .
 RUN npm run build
 
 # Bước 2: Tạo container nhỏ gọn cho production
-FROM node:16-alpine as production
+FROM node:18-alpine as production
 
 WORKDIR /usr/src/app
 
@@ -29,7 +29,7 @@ COPY --from=builder /usr/src/app/dist ./dist
 COPY .env.prod ./.env
 
 # Mở port mà ứng dụng sẽ chạy trên đó
-EXPOSE 3000
+EXPOSE 7777
 
 # Chạy ứng dụng
 CMD ["node", "dist/main"]
