@@ -56,7 +56,7 @@ jobs:
           github_token: ${{ secrets.ACCESS_TOKEN }}
           github_user: ${{ github.actor }}
           workflow_file_name: nestjs-build.yml
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.repository.default_branch }}
           wait_interval: 10
           client_payload: '{}'
           propagate_failure: false
