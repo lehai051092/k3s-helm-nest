@@ -69,13 +69,18 @@ jobs:
       - name: Notify Slack about the build
         uses: slackapi/slack-github-action@v1.25.0
         with:
-          payload: >
+          payload: |
             {
               "is_success": true,
               "list_approve": "${{ secrets.SLACK_LIST_APPROVE }}",
               "title": "GitHub Action build result: ${{ job.status }}",
-              "text": "Please check commit and approve\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
+              "text": "Please check the commitment and approve if there are no problems.\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+      - name: Pause for approval
+        uses: softprops/turnstyle@v1
+        with:
+          abort-after-seconds: 1800 # 30 minutes
