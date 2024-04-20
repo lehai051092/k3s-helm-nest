@@ -72,9 +72,10 @@ jobs:
           payload: >
             {
               "is_success": true,
-              "list_approve": ${{ secrets.SLACK_LIST_APPROVE }},
+              "list_approve": "${{ secrets.SLACK_LIST_APPROVE }}",
               "title": "GitHub Action build result: ${{ job.status }}\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}",
               "text": "GitHub Action build result: ${{ job.status }}\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
