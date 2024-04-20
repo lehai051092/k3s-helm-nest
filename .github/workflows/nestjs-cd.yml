@@ -69,7 +69,6 @@ jobs:
       - name: Notify Slack about the build
         uses: slackapi/slack-github-action@v1.25.0
         with:
-          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
           payload: >
             {
               "is_success": true,
