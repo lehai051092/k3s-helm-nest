@@ -53,6 +53,7 @@ jobs:
         with:
           owner: ${{ github.repository_owner }}
           repo: ${{ github.event.repository.name }}
+          github_token: ${{ secrets.ACCESS_TOKEN }}
           github_user: ${{ github.actor }}
           workflow_file_name: nestjs-build.yml
           ref: ${{ github.sha }}
