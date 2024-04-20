@@ -9,7 +9,7 @@ import { EmployeesAuthModule } from './employees-auth/employees-auth.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
-      envFilePath: ['.env.dev', '.env.prod'],
+      envFilePath: '.env',
       isGlobal: true,
     }),
     TypeOrmModule.forRootAsync({
