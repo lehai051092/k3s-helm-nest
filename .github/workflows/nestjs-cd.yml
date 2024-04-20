@@ -56,6 +56,6 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/nestjs-app:latest
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/nestjs-app:latest ${{ secrets.DOCKERHUB_USERNAME }}/hello-cicd:${{github.sha}}
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/nestjs-app:${{github.sha}}
+          docker pull ${{ secrets.REGISTRY_USERNAME }}/nestjs-app:latest
+          docker tag ${{ secrets.REGISTRY_USERNAME }}/nestjs-app:latest ${{ secrets.DOCKERHUB_USERNAME }}/hello-cicd:${{github.sha}}
+          docker push ${{ secrets.REGISTRY_USERNAME }}/nestjs-app:${{github.sha}}
