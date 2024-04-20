@@ -1,0 +1,43 @@
+name: Deploy and Control NestJS App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Login to k3s Docker Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ secrets.K3S_REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Build and push Docker image
+        run: |
+          docker build -t ${{ secrets.K3S_REGISTRY_URL }}/nestjs-app:${{ github.sha }} .
+          docker push ${{ secrets.K3S_REGISTRY_URL }}/nestjs-app:${{ github.sha }}
+          docker tag ${{ secrets.K3S_REGISTRY_URL }}/nestjs-app:${{ github.sha }} ${{ secrets.K3S_REGISTRY_URL }}/nestjs-app:latest
+          docker push ${{ secrets.K3S_REGISTRY_URL }}/nestjs-app:latest
+
+  notify-slack:
+    runs-on: ubuntu-latest
+    needs: build
+    if: success()
+    steps:
+      - name: Notify Slack about the build
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "list_approve": "${{ secrets.SLACK_LIST_APPROVE }}",
+              "title": "GitHub Action build result: ${{ job.status }}",
+              "text": "Please check the commitment and approve if there are no problems.\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
