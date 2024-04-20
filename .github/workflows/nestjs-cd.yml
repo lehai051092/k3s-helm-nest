@@ -50,6 +50,6 @@ jobs:
       - name: Login to k3s Docker Registry
         uses: docker/login-action@v1
         with:
-          registry: ${{ secrets.K3S.K3S_REGISTRY_URL }}
-          username: ${{ secrets.K3S.REGISTRY_USERNAME }}
-          password: ${{ secrets.K3S.REGISTRY_PASSWORD }}
+          registry: ${{ secrets.K3S_REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
