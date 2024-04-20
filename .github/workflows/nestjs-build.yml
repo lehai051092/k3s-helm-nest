@@ -1,6 +1,7 @@
 name: Deploy and Control NestJS App
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -41,3 +42,33 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+  wait-for-approval:
+    runs-on: ubuntu-latest
+    needs: notify-slack
+    timeout-minutes: 1440  # waits up to 24 hours for an approval
+    steps:
+      - name: Wait for approval
+        uses: convictional/trigger-workflow-and-wait@v1.6.1
+        with:
+          owner: ${{ github.repository_owner }}
+          repo: ${{ github.event.repository.name }}
+          github_user: ${{ github.actor }}
+          workflow_file_name: nestjs-build.yml
+          ref: ${{ github.sha }}
+          wait_interval: 10
+          client_payload: '{}'
+          propagate_failure: false
+          trigger_workflow: true
+          wait_workflow: true
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: wait-for-approval
+    if: success()
+    steps:
+      - name: Pause for 25 seconds
+        run: |
+          sleep 25
+          echo "For testing failure"
+          exit 1
