@@ -36,7 +36,7 @@ jobs:
             {
               "list_approve": "${{ secrets.SLACK_LIST_APPROVE }}",
               "title": "GitHub Action build result: ${{ job.status }}",
-              "text": "Please check the commitment and approve if there are no problems.\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}\n${{ github.repository }}\n${{\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              "text": "Please check the commitment and approve if there are no problems.\n${{ github.event.pull_request.html_url || github.event.head_commit.url }} \n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
