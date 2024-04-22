@@ -89,8 +89,9 @@ jobs:
     needs: helm-packages
     if: success()
     steps:
-      - run: eval $(ssh-agent -s)
-      - run: |
+      - name: Deploy to K3s
+        run: |
+          eval $(ssh-agent -s)
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
@@ -98,7 +99,7 @@ jobs:
           chmod 600 ~/.ssh/known_hosts
           pwd && ls -la
           ssh ${SSH_USER}@${$SSH_SERVER_IP} "helm pull oci://${{ secrets.K3S_REGISTRY_URL }}/${{ secrets.HELM_REPO_NAME }}/nest-app --version 1.0.0"
-          ssh ${SSH_USER}@${$SSH_SERVER_IP} "helm upgrade --install nest-app oci://${{ secrets.K3S_REGISTRY_URL }}/${{ secrets.HELM_REPO_NAME }}/nest-app --version 1.0.0 --namespace ${{ secrets.NAME_SPACE }} --create-namespace --values your-values-file.yaml"
+          ssh ${SSH_USER}@${$SSH_SERVER_IP} "helm upgrade --install nest-app oci://${{ secrets.K3S_REGISTRY_URL }}/${{ secrets.HELM_REPO_NAME }}/nest-app --version 1.0.0 --namespace ${{ secrets.NAME_SPACE }} --create-namespace --values /home/marco/projects/k3s-helm-nest/nest-app/values.yaml"
           ssh ${SSH_USER}@${$SSH_SERVER_IP} "kubectl rollout restart deploy -n ${{ secrets.NAME_SPACE }}"
 
   notify-slack-if-deploy-success:
@@ -130,14 +131,21 @@ jobs:
           payload: |
             {
               "list_approve": "${{ secrets.SLACK_LIST_APPROVE }}",
-              "title": "GitHub Action build result: ${{ job.status }}",
+              "title": "GitHub Action deploy result: failure",
               "text": "Release fail. Please check the commit and find the cause of the error.\n${{ github.event.pull_request.html_url || github.event.head_commit.url }} \n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
       - name: Display Helm History
-        run: helm history nest-app
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+          ssh-keyscan -H $SSH_SERVER_IP >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          pwd && ls -la
+          helm history nest-app
       - name: Rollback to specified revision or last stable release
         run: |
           if [ "${{ github.event.inputs.revision }}" == "" ]; then
