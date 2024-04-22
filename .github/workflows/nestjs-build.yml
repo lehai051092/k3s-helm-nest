@@ -2,11 +2,10 @@ name: Deploy and Control NestJS App
 
 on:
   workflow_dispatch:
-  pull_request:
+  push:
     branches:
       - main
-    types:
-      - closed
+
 jobs:
   build:
     runs-on: ubuntu-latest
