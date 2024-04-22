@@ -80,7 +80,6 @@ jobs:
       - name: Install OCI Helm plugin
         run: |
           export HELM_EXPERIMENTAL_OCI=1
-          helm plugin install https://github.com/helm/helm-oci
       - name: Log in to Docker Registry
         run: echo "${{ secrets.REGISTRY_PASSWORD }}" | helm registry login ${{ secrets.K3S_REGISTRY_URL }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
       - name: Package and Push Helm Chart
