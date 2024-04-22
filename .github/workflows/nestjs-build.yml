@@ -14,8 +14,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      repo_digests: ${{ steps.set-variable.outputs.repo_digests }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -31,12 +29,6 @@ jobs:
           docker push ${{ secrets.K3S_REGISTRY_URL }}/nestjs-app:${{ github.sha }}
           docker tag ${{ secrets.K3S_REGISTRY_URL }}/nestjs-app:${{ github.sha }} ${{ secrets.K3S_REGISTRY_URL }}/nestjs-app:latest
           docker push ${{ secrets.K3S_REGISTRY_URL }}/nestjs-app:latest
-      - name: Set variable output
-        id: set-variable
-        shell: bash
-        run: |
-          repo_digests=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ secrets.K3S_REGISTRY_URL }}/nestjs-app:latest)
-          echo "repo_digests=${repo_digests: -64}" >> "$GITHUB_OUTPUT"
 
   notify-slack-if-build-success:
     runs-on: ubuntu-latest
@@ -97,16 +89,17 @@ jobs:
     needs: helm-packages
     if: success()
     steps:
-      - eval $(ssh-agent -s)
-      - mkdir -p ~/.ssh
-      - chmod 700 ~/.ssh
-      - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
-      - ssh-keyscan -H $SSH_SERVER_IP >> ~/.ssh/known_hosts
-      - chmod 600 ~/.ssh/known_hosts
-      - pwd && ls -la
-      - ssh ${SSH_USER}@${$SSH_SERVER_IP} "helm pull oci://${{ secrets.K3S_REGISTRY_URL }}/${{ secrets.HELM_REPO_NAME }}/nest-app --version 1.0.0"
-      - ssh ${SSH_USER}@${$SSH_SERVER_IP} "helm upgrade --install nest-app oci://${{ secrets.K3S_REGISTRY_URL }}/${{ secrets.HELM_REPO_NAME }}/nest-app --version 1.0.0 --namespace ${{ secrets.NAME_SPACE }} --create-namespace --values your-values-file.yaml"
-      - ssh ${SSH_USER}@${$SSH_SERVER_IP} "kubectl rollout restart deploy -n ${{ secrets.NAME_SPACE }}"
+      - run: eval $(ssh-agent -s)
+      - run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+          ssh-keyscan -H $SSH_SERVER_IP >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          pwd && ls -la
+          ssh ${SSH_USER}@${$SSH_SERVER_IP} "helm pull oci://${{ secrets.K3S_REGISTRY_URL }}/${{ secrets.HELM_REPO_NAME }}/nest-app --version 1.0.0"
+          ssh ${SSH_USER}@${$SSH_SERVER_IP} "helm upgrade --install nest-app oci://${{ secrets.K3S_REGISTRY_URL }}/${{ secrets.HELM_REPO_NAME }}/nest-app --version 1.0.0 --namespace ${{ secrets.NAME_SPACE }} --create-namespace --values your-values-file.yaml"
+          ssh ${SSH_USER}@${$SSH_SERVER_IP} "kubectl rollout restart deploy -n ${{ secrets.NAME_SPACE }}"
 
   notify-slack-if-deploy-success:
     runs-on: ubuntu-latest
@@ -143,6 +136,8 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+      - name: Display Helm History
+        run: helm history nest-app
       - name: Rollback to specified revision or last stable release
         run: |
           if [ "${{ github.event.inputs.revision }}" == "" ]; then
