@@ -70,10 +70,11 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
 
-  helm_packages:
+  helm-packages:
     environment: production
     runs-on: ubuntu-latest
     needs: notify-slack-if-build-success
+    if: success()
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -82,8 +83,25 @@ jobs:
           sudo snap install helm --classic
       - name: Package and Push Helm Chart
         run: |
-          helm package ./helm
+          helm package ./k3s-nest
           helm plugin install https://github.com/chartmuseum/helm-push
           helm repo add ${{ secrets.HELM_REPO_NAME }} ${{ secrets.K3S_REGISTRY_URL }} --username ${{ secrets.REGISTRY_USERNAME }} --password ${{ secrets.REGISTRY_PASSWORD }}
           helm repo update
-          helm cm-push ./helm/*.tgz ${{ secrets.HELM_REPO_NAME }}
+          helm cm-push ./k3s-nest/ ${{ secrets.HELM_REPO_NAME }}
+
+#  helm-deploy:
+#    runs-on: ubuntu-latest
+#    needs: helm-packages
+#    if: success()
+#    steps:
+#      - eval $(ssh-agent -s)
+#      - mkdir -p ~/.ssh
+#      - chmod 700 ~/.ssh
+#      - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+#      - ssh-keyscan -H $SSH_SERVER_IP >> ~/.ssh/known_hosts
+#      - chmod 600 ~/.ssh/known_hosts
+#      - pwd && ls -la
+#      - ssh ${SSH_USER}@${$SSH_SERVER_IP} "helm repo add ${{ secrets.HELM_REPO_NAME }} --username ${{ secrets.REGISTRY_USERNAME }} --password ${{ secrets.REGISTRY_PASSWORD }} ${{ secrets.K3S_REGISTRY_URL }}"
+#      - ssh ${SSH_USER}@${$SSH_SERVER_IP} "helm repo update"
+#      - ssh ${SSH_USER}@${$SSH_SERVER_IP} "helm upgrade --install $HELM_REPO_NAME $REPO_NAME/$CHART_NAME -n $NAME_SPACE --create-namespace"
+#      - ssh ${SSH_USER}@${$SSH_SERVER_IP} "kubectl rollout restart deploy -n $NAME_SPACE"
