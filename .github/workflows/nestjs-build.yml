@@ -2,6 +2,11 @@ name: Deploy and Control NestJS App
 
 on:
   workflow_dispatch:
+    inputs:
+      revision:
+        description: 'Revision number to rollback to (optional - leave blank to use the last stable release)'
+        required: false
+        type: integer
   push:
     branches:
       - main
@@ -87,19 +92,63 @@ jobs:
           helm package ./nest-app
           helm push ./nest-app-1.0.0.tgz oci://${{ secrets.K3S_REGISTRY_URL }}/${{ secrets.HELM_REPO_NAME }}/nest-app
 
-#  helm-deploy:
-#    runs-on: ubuntu-latest
-#    needs: helm-packages
-#    if: success()
-#    steps:
-#      - eval $(ssh-agent -s)
-#      - mkdir -p ~/.ssh
-#      - chmod 700 ~/.ssh
-#      - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
-#      - ssh-keyscan -H $SSH_SERVER_IP >> ~/.ssh/known_hosts
-#      - chmod 600 ~/.ssh/known_hosts
-#      - pwd && ls -la
-#      - ssh ${SSH_USER}@${$SSH_SERVER_IP} "helm repo add ${{ secrets.HELM_REPO_NAME }} --username ${{ secrets.REGISTRY_USERNAME }} --password ${{ secrets.REGISTRY_PASSWORD }} ${{ secrets.K3S_REGISTRY_URL }}"
-#      - ssh ${SSH_USER}@${$SSH_SERVER_IP} "helm repo update"
-#      - ssh ${SSH_USER}@${$SSH_SERVER_IP} "helm upgrade --install $HELM_REPO_NAME $REPO_NAME/$CHART_NAME -n $NAME_SPACE --create-namespace"
-#      - ssh ${SSH_USER}@${$SSH_SERVER_IP} "kubectl rollout restart deploy -n $NAME_SPACE"
+  helm-deploy:
+    runs-on: ubuntu-latest
+    needs: helm-packages
+    if: success()
+    steps:
+      - eval $(ssh-agent -s)
+      - mkdir -p ~/.ssh
+      - chmod 700 ~/.ssh
+      - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+      - ssh-keyscan -H $SSH_SERVER_IP >> ~/.ssh/known_hosts
+      - chmod 600 ~/.ssh/known_hosts
+      - pwd && ls -la
+      - ssh ${SSH_USER}@${$SSH_SERVER_IP} "helm pull oci://${{ secrets.K3S_REGISTRY_URL }}/${{ secrets.HELM_REPO_NAME }}/nest-app --version 1.0.0"
+      - ssh ${SSH_USER}@${$SSH_SERVER_IP} "helm upgrade --install nest-app oci://${{ secrets.K3S_REGISTRY_URL }}/${{ secrets.HELM_REPO_NAME }}/nest-app --version 1.0.0 --namespace ${{ secrets.NAME_SPACE }} --create-namespace --values your-values-file.yaml"
+      - ssh ${SSH_USER}@${$SSH_SERVER_IP} "kubectl rollout restart deploy -n ${{ secrets.NAME_SPACE }}"
+
+  notify-slack-if-deploy-success:
+    runs-on: ubuntu-latest
+    needs: helm-deploy
+    if: success()
+    steps:
+      - name: Notify Slack about the build
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "list_approve": "${{ secrets.SLACK_LIST_APPROVE }}",
+              "title": "GitHub Action build result: ${{ job.status }}",
+              "text": "Release success.\n${{ github.event.pull_request.html_url || github.event.head_commit.url }} \n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+  helm-rollback:
+    runs-on: ubuntu-latest
+    needs: helm-deploy
+    if: failure()
+    steps:
+      - name: Notify Slack about the build
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "list_approve": "${{ secrets.SLACK_LIST_APPROVE }}",
+              "title": "GitHub Action build result: ${{ job.status }}",
+              "text": "Release fail. Please check the commit and find the cause of the error.\n${{ github.event.pull_request.html_url || github.event.head_commit.url }} \n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+      - name: Rollback to specified revision or last stable release
+        run: |
+          if [ "${{ github.event.inputs.revision }}" == "" ]; then
+            echo "No revision input. Rolling back to the last stable release..."
+            helm rollback nest-app 0
+          else
+            echo "Rolling back to revision ${{ github.event.inputs.revision }}..."
+            helm rollback nest-app ${{ github.event.inputs.revision }}
+          endif
