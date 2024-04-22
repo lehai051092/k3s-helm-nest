@@ -5,7 +5,8 @@ on:
   push:
     branches:
       - main
-
+    types:
+      - closed
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,8 +25,14 @@ jobs:
           docker push ${{ secrets.K3S_REGISTRY_URL }}/nestjs-app:${{ github.sha }}
           docker tag ${{ secrets.K3S_REGISTRY_URL }}/nestjs-app:${{ github.sha }} ${{ secrets.K3S_REGISTRY_URL }}/nestjs-app:latest
           docker push ${{ secrets.K3S_REGISTRY_URL }}/nestjs-app:latest
+      - name: Set variable output
+        id: set-variable
+        shell: bash
+        run: |
+          repo_digests=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ secrets.K3S_REGISTRY_URL }}/nestjs-app:latest)
+          echo "repo_digests=${repo_digests: -64}" >> "$GITHUB_OUTPUT"
 
-  notify-slack:
+  notify-slack-if-build-success:
     runs-on: ubuntu-latest
     needs: build
     if: success()
@@ -37,39 +44,44 @@ jobs:
             {
               "list_approve": "${{ secrets.SLACK_LIST_APPROVE }}",
               "title": "GitHub Action build result: ${{ job.status }}",
-              "text": "Please check the commitment and approve if there are no problems.\n${{ github.event.pull_request.html_url || github.event.head_commit.url }} \n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              "text": "Please check the commit and approve if you can.\n${{ github.event.pull_request.html_url || github.event.head_commit.url }} \n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
 
-  wait-for-approval:
+  notify-slack-if-build-failure:
     runs-on: ubuntu-latest
-    needs: notify-slack
-    timeout-minutes: 1440  # waits up to 24 hours for an approval
+    needs: build
+    if: failure()
     steps:
-      - name: Wait for approval
-        uses: convictional/trigger-workflow-and-wait@v1.6.1
+      - name: Notify Slack about the build
+        uses: slackapi/slack-github-action@v1.25.0
         with:
-          owner: ${{ github.repository_owner }}
-          repo: ${{ github.event.repository.name }}
-          github_token: ${{ secrets.ACCESS_TOKEN }}
-          github_user: ${{ github.actor }}
-          workflow_file_name: nestjs-build.yml
-          ref: ${{ github.event.repository.default_branch }}
-          wait_interval: 10
-          client_payload: '{}'
-          propagate_failure: false
-          trigger_workflow: true
-          wait_workflow: true
+          payload: |
+            {
+              "list_approve": "${{ secrets.SLACK_LIST_APPROVE }}",
+              "title": "GitHub Action build result: ${{ job.status }}",
+              "text": "Please check the commit and find the cause of the error.\n${{ github.event.pull_request.html_url || github.event.head_commit.url }} \n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
 
-  deploy:
+  helm_packages:
+    environment: production
     runs-on: ubuntu-latest
-    needs: wait-for-approval
-    if: success()
+    needs: notify-slack-if-build-success
     steps:
-      - name: Pause for 25 seconds
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install Helm
         run: |
-          sleep 25
-          echo "For testing failure"
-          exit 1
+          sudo snap install helm --classic
+      - name: Package and Push Helm Chart
+        run: |
+          helm package ./helm
+          helm plugin install https://github.com/chartmuseum/helm-push
+          helm repo add ${{ secrets.HELM_REPO_NAME }} ${{ secrets.K3S_REGISTRY_URL }} --username ${{ secrets.REGISTRY_USERNAME }} --password ${{ secrets.REGISTRY_PASSWORD }}
+          helm repo update
+          helm cm-push ./helm/*.tgz ${{ secrets.HELM_REPO_NAME }}
