@@ -2,13 +2,16 @@ name: Deploy and Control NestJS App
 
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches:
       - main
-
+    types:
+      - closed
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      repo_digests: ${{ steps.set-variable.outputs.repo_digests }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
