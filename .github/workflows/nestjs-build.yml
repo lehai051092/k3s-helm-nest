@@ -77,16 +77,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Install Helm
+      - name: Install OCI Helm plugin
         run: |
-          sudo snap install helm --classic
+          export HELM_EXPERIMENTAL_OCI=1
+          helm plugin install https://github.com/helm/helm-oci
+      - name: Log in to Docker Registry
+        run: echo "${{ secrets.REGISTRY_PASSWORD }}" | helm registry login ${{ secrets.K3S_REGISTRY_URL }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
       - name: Package and Push Helm Chart
         run: |
-          helm package ./k3s-nest
-          helm plugin install https://github.com/chartmuseum/helm-push
-          helm repo add ${{ secrets.HELM_REPO_NAME }} ${{ secrets.K3S_REGISTRY_URL }} --username ${{ secrets.REGISTRY_USERNAME }} --password ${{ secrets.REGISTRY_PASSWORD }}
-          helm repo update
-          helm cm-push ./k3s-nest/ ${{ secrets.HELM_REPO_NAME }}
+          helm package ./nest-app
+          helm push ./nest-app-1.0.0.tgz oci://${{ secrets.K3S_REGISTRY_URL }}/${{ $HELM_REPO_NAME }}/nest-app:latest
 
 #  helm-deploy:
 #    runs-on: ubuntu-latest
