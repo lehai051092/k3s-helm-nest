@@ -86,7 +86,7 @@ jobs:
       - name: Package and Push Helm Chart
         run: |
           helm package ./nest-app
-          helm push ./nest-app-1.0.0.tgz oci://${{ secrets.K3S_REGISTRY_URL }}/${{ $HELM_REPO_NAME }}/nest-app:latest
+          helm push ./nest-app-1.0.0.tgz oci://${{ secrets.K3S_REGISTRY_URL }}/${{ secrets.HELM_REPO_NAME }}/nest-app:latest
 
 #  helm-deploy:
 #    runs-on: ubuntu-latest
